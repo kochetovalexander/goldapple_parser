@@ -11,7 +11,7 @@ CSV_PATH = "products.csv"
 opts = wd.FirefoxOptions()
 opts.add_argument("--width=1200")
 opts.add_argument("--height=720")
-
+opts.add_argument("--headless")
 
 # ====================================================================================
 
@@ -130,7 +130,7 @@ def get_item_name(driver: wd):
         p_item_name = driver.find_element(
             By.XPATH, '//*[@id="__layout"]/div/main/article/div[4]/div[2]/div/div[2]/div[1]/div/div/div/div[1]')
         return p_item_name.text.strip()
-    except NoSuchElementException:
+    except:
         return "Not available"
 
 
@@ -141,7 +141,7 @@ def get_item_price(driver: wd):
             By.XPATH, '//*[@id="__layout"]/div/main/article/div[1]/div[1]/form/div[2]/div[1]/div[1]/div[1]')
         price = p_item_price.text.strip()
         return price
-    except NoSuchElementException:
+    except:
         return "Not available"
 
 
@@ -152,7 +152,7 @@ def get_item_image(driver: wd):
             By.XPATH, '//*[@id="__layout"]/div/main/article/div[1]/div[2]/div[2]/div[1]/div/div/div/div[1]/picture/source[1]')
         image = p_item_image.get_attribute("srcset")
         return image
-    except NoSuchElementException:
+    except:
         return "Not available"
 
 
@@ -162,7 +162,7 @@ def get_item_description(driver: wd):
         p_item_description = driver.find_element(
             By.CLASS_NAME, r'IBqyX')
         return p_item_description.text.replace("\n", "").strip()
-    except NoSuchElementException:
+    except:
         return "Not available"
 
 
@@ -173,7 +173,7 @@ def get_item_rating(driver: wd) -> float | str:
             By.XPATH,
             r'//*[@id="__layout"]/div/main/div[1]/div/div[3]/a[1]/div/div[1]')
         return float(p_item_rating.text.strip())
-    except NoSuchElementException:
+    except:
         return "Not available"
 
 
