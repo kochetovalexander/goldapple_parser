@@ -1,4 +1,5 @@
 import time
+import re
 
 import pandas as pd
 from selenium import webdriver as wd
@@ -20,6 +21,10 @@ def main() -> None:
 
     firefox_driver = wd.Firefox(options=opts)
 
+    # make_selenium_get_request('https://goldapple.ru/review/product/19760345882', firefox_driver)
+    # get_reviews(firefox_driver)
+    # exit()
+
     print("Загрузка данных...")
 
     # product_urls = ["https://goldapple.ru/26830400003-dreaming-with-ghosts",
@@ -29,29 +34,53 @@ def main() -> None:
 
     print("Обработка данных...")
 
-    for page in range(1, 1921):
+    for page in range(14, 1921):
         product_urls: list = []
 
-        make_selenium_get_request(URL, firefox_driver, page)
-        tablet_items_class = get_items_class(firefox_driver)
+        time.sleep(2)
+
+        print(f"Страница {page}...")
+        try:
+            make_selenium_get_request(URL, firefox_driver, page)
+            tablet_items_class = get_items_class(firefox_driver)
+        except:
+            print(firefox_driver.page_source)
+            firefox_driver.save_screenshot("screen.png") 
+            time.sleep(5)
+            continue
+
         product_urls = get_items_urls_on_page(tablet_items_class)
-        print(f"Страница {page} обработана.")
+        print(f"\t...{page} обработана.")
         time.sleep(2)
 
         items_list: list[dict] = []
         item_number = 0
         for _url in product_urls:
-            make_selenium_get_request(_url, firefox_driver)
+            item_id = re.sub(r'^.+/(\d+)\D?.*$', r'\1', _url)
+            print(_url + ' -> ' + item_id)
 
-            time.sleep(1.5)
+            time.sleep(2)
 
-            item_number: int = item_number + 1
-            item_name: str = get_item_name(driver=firefox_driver)
-            item_image: str = get_item_image(driver=firefox_driver)
-            item_price: str = get_item_price(driver=firefox_driver)
-            item_rating: float | str = get_item_rating(driver=firefox_driver)
-            item_description: str = get_item_description(driver=firefox_driver)
-            item_instructions, item_country, item_composition = manipulate_menu(driver=firefox_driver)
+            try:
+                make_selenium_get_request(_url, firefox_driver)
+
+                item_number: int = item_number + 1
+                item_name: str = get_item_name(driver=firefox_driver)
+                item_image: str = get_item_image(driver=firefox_driver)
+                item_properties: str = get_item_properties(driver=firefox_driver)
+                item_price: str = get_item_price(driver=firefox_driver)
+                item_rating: float | str = get_item_rating(driver=firefox_driver)
+                item_description: str = get_item_description(driver=firefox_driver)
+                item_instructions, item_country, item_composition = manipulate_menu(driver=firefox_driver)
+            except:
+                time.sleep(5)
+                continue
+
+            try:
+                make_selenium_get_request('https://goldapple.ru/review/product/' + item_id, firefox_driver)
+                item_reviews = get_reviews(firefox_driver)
+            except:
+                item_reviews = ''
 
             items_list.append({
                 "number": item_number,
@@ -63,7 +92,9 @@ def main() -> None:
                 "description": item_description,
                 "composition": item_composition,
                 "instructions": item_instructions,
-                "country": item_country
+                "properties": item_properties,
+                "country": item_country,
+                "reviews": item_reviews
             })
 
             print("Товар {} создан!".format(item_name))
@@ -75,6 +106,8 @@ def main() -> None:
             items_dataframe.to_csv(f, header = (page == 1))
 
         print("Все товары сохранены в {}".format(CSV_PATH))
+
+        time.sleep(2)
 
     firefox_driver.close()
 
@@ -92,6 +125,21 @@ def make_selenium_get_request(url: str, driver, page: int | None = None) -> None
     except:
         print()
 
+def get_reviews(driver):
+    children = driver.find_elements(By.CLASS_NAME, "_5ZY\+P")
+    # print(children)
+    data: list = []
+    for item in children:
+        try:
+            author = item.find_element(By.TAG_NAME, r'h3').text.strip()
+            data.append(author)
+            sections = item.find_elements(By.TAG_NAME, r'section')
+            for section in sections:
+                data.append(section.text.strip())
+        except:
+            continue
+    # print(data)
+    return "\n".join(data)
 
 def get_items_class(driver):
     children = driver.find_elements(By.CLASS_NAME, "MHHxW")
@@ -154,6 +202,17 @@ def get_item_image(driver: wd):
         return image
     except:
         return "Not available"
+
+
+def get_item_properties(driver: wd):
+    """Функция осуществляет поиск поле <подробные характеристики> и парсит соответствующее полю значение."""
+    try:
+        p_item_properties = driver.find_element(
+            By.XPATH, '//*[@id="__layout"]/div/main/article/div[4]/div[2]/div[1]/div[2]/div/div/div/div/div[4]/div/dl')
+        properties = p_item_properties.text
+        return properties
+    except:
+        return ""
 
 
 def get_item_description(driver: wd):
