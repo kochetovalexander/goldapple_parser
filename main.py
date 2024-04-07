@@ -6,12 +6,15 @@ from selenium import webdriver as wd
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 
-URL = "https://goldapple.ru/uhod"
+URL = "https://goldapple.ru/uhod/uhod-za-licom"
 CSV_PATH = "products.csv"
+
+CLASS_LIST_ITEM = "MjtQ7"
+CLASS_DESCRIPTION = "WSljG"
 
 opts = wd.FirefoxOptions()
 opts.add_argument("--width=1200")
-opts.add_argument("--height=720")
+opts.add_argument("--height=2600")
 opts.add_argument("--headless")
 
 # ====================================================================================
@@ -34,20 +37,32 @@ def main() -> None:
 
     print("Обработка данных...")
 
-    for page in range(14, 1921):
+    try:
+        start_page = int(open('start_page.txt', 'r').read().strip())
+    except:
+        start_page = 32
+
+    for page in range(start_page, 916):
         product_urls: list = []
 
         time.sleep(2)
 
         print(f"Страница {page}...")
+
+        with open('start_page.txt', 'w') as f:
+            f.write(f"{page}")
+
         try:
             make_selenium_get_request(URL, firefox_driver, page)
+            # firefox_driver.save_screenshot("screen.png")
+            # open('page_source.txt', 'w').write(firefox_driver.page_source)
+
             tablet_items_class = get_items_class(firefox_driver)
         except:
-            print(firefox_driver.page_source)
-            firefox_driver.save_screenshot("screen.png") 
+            # print(firefox_driver.page_source)
+            # firefox_driver.save_screenshot("screen.png") 
             time.sleep(5)
-            continue
+            exit(1)
 
         product_urls = get_items_urls_on_page(tablet_items_class)
         print(f"\t...{page} обработана.")
@@ -76,6 +91,9 @@ def main() -> None:
                 time.sleep(5)
                 continue
 
+            if (item_name == 'Not available'):
+                continue
+
             try:
                 make_selenium_get_request('https://goldapple.ru/review/product/' + item_id, firefox_driver)
                 item_reviews = get_reviews(firefox_driver)
@@ -97,6 +115,10 @@ def main() -> None:
                 "reviews": item_reviews
             })
 
+            if item_number == 1:
+                print(items_list)
+            # exit()
+
             print("Товар {} создан!".format(item_name))
 
         print("Все товары были созданы. Процесс сохранения...")
@@ -110,7 +132,7 @@ def main() -> None:
         time.sleep(2)
 
     firefox_driver.close()
-
+    exit(0)
 
 # ====================================================================================
 
@@ -126,7 +148,7 @@ def make_selenium_get_request(url: str, driver, page: int | None = None) -> None
         print()
 
 def get_reviews(driver):
-    children = driver.find_elements(By.CLASS_NAME, "_5ZY\+P")
+    children = driver.find_elements(By.CLASS_NAME, "mn2eJ")
     # print(children)
     data: list = []
     for item in children:
@@ -142,7 +164,7 @@ def get_reviews(driver):
     return "\n".join(data)
 
 def get_items_class(driver):
-    children = driver.find_elements(By.CLASS_NAME, "MHHxW")
+    children = driver.find_elements(By.CLASS_NAME, CLASS_LIST_ITEM)
     print(f"Это внутри: {children}")
     return children
 
@@ -201,7 +223,18 @@ def get_item_image(driver: wd):
         image = p_item_image.get_attribute("srcset")
         return image
     except:
-        return "Not available"
+        return ""
+
+
+def get_item_properties(driver: wd):
+    """Функция осуществляет поиск поле <подробные характеристики> и парсит соответствующее полю значение."""
+    try:
+        p_item_properties = driver.find_element(
+            By.XPATH, '//*[@id="__layout"]/div/main/article/div[4]/div[2]/div[1]/div[2]/div/div/div/div/div[4]/div/dl')
+        properties = p_item_properties.text
+        return properties
+    except:
+        return ""
 
 
 def get_item_properties(driver: wd):
@@ -219,7 +252,7 @@ def get_item_description(driver: wd):
     """Функция осуществляет поиск поле <Описание> и парсит соответствующее полю значение."""
     try:
         p_item_description = driver.find_element(
-            By.CLASS_NAME, r'IBqyX')
+            By.CLASS_NAME, CLASS_DESCRIPTION)
         return p_item_description.text.replace("\n", "").strip()
     except:
         return "Not available"
@@ -252,13 +285,13 @@ def manipulate_menu(driver: wd):
 
             if menu_item.text.strip() == "ПРИМЕНЕНИЕ":
                 p_item_instructions = driver.find_element(
-                    By.CLASS_NAME, r'IBqyX').text.replace("\n", "").strip()
+                    By.CLASS_NAME, r'JQ8mt').text.replace("\n", "").strip()
             elif menu_item.text.strip() == "СОСТАВ":
                 p_item_composition = driver.find_element(
-                    By.CLASS_NAME, r'IBqyX').text.strip()
+                    By.CLASS_NAME, r'JQ8mt').text.strip()
             elif menu_item.text.strip() == "О БРЕНДЕ":
                 p_item_country = driver.find_element(
-                    By.CLASS_NAME, r'bFC3b').text.strip()
+                    By.CLASS_NAME, r'JQ8mt').text.strip()
 
         except NoSuchElementException:
             continue
